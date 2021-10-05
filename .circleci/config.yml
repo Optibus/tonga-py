@@ -1,0 +1,71 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@0.2.1
+
+jobs:
+  lint:
+    docker:
+      - image: circleci/python:3.7.9
+    steps:
+      - checkout
+      - python/load-cache
+      - run:
+          command: sudo pip install -e .[dev]
+      - python/save-cache
+      - run:
+          command: |
+            mkdir ./results
+            pylint playback > ./results/pylint.xml
+            flake8 examples tests playback --max-line-length=120 --format junit-xml > ./results/flake8.xml
+      - store_test_results:
+          path: ./results
+
+  python2-tests:
+    docker:
+      - image: circleci/python:2.7.18
+    steps:
+      - checkout
+      - python/load-cache
+      - run:
+          command: sudo pip install -e .[dev]
+      - python/save-cache
+      - run:
+          command: |
+            mkdir ./results
+            pytest tests --junit-xml=./results/python2-tests.xml
+      - store_test_results:
+          path: ./results
+
+  python3-tests:
+    docker:
+      - image: circleci/python:3.7.9
+    steps:
+      - checkout
+      - python/load-cache
+      - run:
+          command: sudo pip install -e .[dev]
+      - python/save-cache
+      - run:
+          command: |
+            mkdir ./results
+            pytest tests --junit-xml=./results/python3-tests.xml
+      - store_test_results:
+          path: ./results
+
+
+workflows:
+  build:
+    jobs:
+      - lint:
+          filters:
+            tags:
+              only: /.*/
+      - python2-tests:
+          filters:
+            tags:
+              only: /.*/
+      - python3-tests:
+          filters:
+            tags:
+              only: /.*/

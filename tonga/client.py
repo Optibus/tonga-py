@@ -1,0 +1,2 @@
+class TongaClient(object):
+    pass
