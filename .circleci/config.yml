@@ -16,7 +16,7 @@ jobs:
       - run:
           command: |
             mkdir ./results
-            pylint tonga-py > ./results/pylint.xml
+            pylint tonga > ./results/pylint.xml
             flake8 tests tonga-py --max-line-length=120 --format junit-xml > ./results/flake8.xml
       - store_test_results:
           path: ./results
