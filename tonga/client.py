@@ -38,7 +38,7 @@ class TongaClient(object):
         :rtype: Any
         """
         if six.PY2:
-            query_string = urllib.urlencode(self.context_attributes or {})
+            query_string = urllib.urlencode(self.context_attributes or {})  # pylint: disable=maybe-no-member
         else:
             query_string = urllib.parse.urlencode(self.context_attributes)
         request_string = u'{server_url}/flag_value/{flag}'.format(server_url=self.server_url, flag=flag)
