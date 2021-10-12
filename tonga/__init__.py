@@ -1,1 +1,1 @@
-from tonga.client import TongaClient
+from tonga.client import TongaClient  # noqa: F401
