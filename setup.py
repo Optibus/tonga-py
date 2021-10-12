@@ -21,7 +21,7 @@ setuptools.setup(
         'requests==2.24',
     ],
     extras_require={'dev': [
-        'requests-mock==1.9.3'
+        'requests-mock==1.9.3',
         'pytest==4.6.9',
         'pylint==2.6.0; python_version > "3.0"',
         'pylint-junit==0.3.2; python_version > "3.0"',
