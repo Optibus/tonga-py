@@ -23,6 +23,7 @@ class TongaClient(object):
         self._analytics_counter = defaultdict(Counter)
         self._analytics_lock = Lock()
         self._stop_event = Event()
+        self._update_analytics_thread = None
         self._started = False
 
     def get(self, flag):
