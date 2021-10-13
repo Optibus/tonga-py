@@ -77,6 +77,10 @@ class TestClient(unittest.TestCase):
         self.assertDictEqual({'flag_name1': {"true": 2}, "flag_name2": {"false": 1}, "flag_name3": {"null": 1}},
                              json.loads(post.last_request.json()))
 
+    def test_close_without_being_started(self):
+        server_url = "http://server_url"
+        TongaClient(server_url).close()
+
     @requests_mock.Mocker()
     def test_send_analytics_periodically_and_not_duplicated(self, m):
         server_url = "http://server_url"

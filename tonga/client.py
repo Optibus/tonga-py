@@ -23,9 +23,7 @@ class TongaClient(object):
         self._analytics_counter = defaultdict(Counter)
         self._analytics_lock = Lock()
         self._stop_event = Event()
-        self._update_analytics_thread = Thread(target=self._update_analytics_loop, name="Tonga Analytics Thread")
-        self._update_analytics_thread.setDaemon(True)
-        self._update_analytics_thread.start()
+        self._started = False
 
     def get(self, flag):
         """
@@ -36,6 +34,7 @@ class TongaClient(object):
         :return: Flag value if defined, otherwise None
         :rtype: Any
         """
+        self._ensure_started()
         value = self._get_flag_value_through_cache(flag)
         with self._analytics_lock:
             self._analytics_counter[flag][json.dumps(value)] += 1
@@ -46,11 +45,28 @@ class TongaClient(object):
         Closes the client and underlying resources and flush any missing pending analytics report
         """
         self._stop_event.set()
+
+        if not self._started:
+            return
+
         try:
             self._update_analytics_thread.join(self.options.timeout_on_close)
         except RuntimeError:
             # If thread was not started
             pass
+
+    def _ensure_started(self):
+        """
+        We want to start underlying resources in lazy manner only if the client is actually being used, this method
+        will start the client if needed and if its already started it will do nothing
+        """
+        if self._started:
+            return
+
+        self._update_analytics_thread = Thread(target=self._update_analytics_loop, name="Tonga Analytics Thread")
+        self._update_analytics_thread.setDaemon(True)
+        self._update_analytics_thread.start()
+        self._started = True
 
     def _get_flag_value_through_cache(self, flag):
         """
