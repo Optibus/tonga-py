@@ -2,7 +2,7 @@ import unittest
 
 import requests_mock
 
-from tonga import TongaClient
+from tonga import TongaClient, TongaClientOptions
 
 
 class TestClient(unittest.TestCase):
@@ -54,6 +54,15 @@ class TestClient(unittest.TestCase):
         flag_value = client.get("flag_name")
         self.assertTrue(flag_value)
         self.assertEqual(1, m.call_count)
+
+    @requests_mock.Mocker()
+    def test_offline_mode_fetch(self, m):
+        server_url = "http://server_url"
+        m.get('{}/flag_value/flag_name'.format(server_url), text="true")
+        client = TongaClient(server_url, options=TongaClientOptions(offline_mode=True))
+        flag_value = client.get("flag_name", offline_value=False)
+        self.assertFalse(flag_value)
+        self.assertFalse(m.called)
 
 
 if __name__ == '__main__':

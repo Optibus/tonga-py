@@ -4,26 +4,33 @@ import six
 
 
 class TongaClient(object):
-    def __init__(self, server_url, context_attributes=None):
+    def __init__(self, server_url, context_attributes=None, options=None):
         """
         :param server_url: Server connection string
         :type server_url: str
         :param context_attributes: Optional context attributes to be passed on each query
         :type context_attributes: dict[str, object]
+        :param options: Client optional configuration
+        :type options: TongaClientOptions
         """
         self.server_url = server_url
         self.context_attributes = context_attributes or {}
+        self.options = options or TongaClientOptions()
         self._flag_cache = {}
 
-    def get(self, flag):
+    def get(self, flag, offline_value=None):
         """
         Gets the value associated to the specified flag
         at the server
         :param flag: Flag name
         :type flag: str
+        :param offline_value: Which value to return if client is in offline mode
+        :type offline_value: Any
         :return: Flag value if defined, otherwise None
         :rtype: Any
         """
+        if self.options.offline_mode:
+            return offline_value
         return self._get_flag_value_through_cache(flag)
 
     def _get_flag_value_through_cache(self, flag):
@@ -71,3 +78,8 @@ class TongaClient(object):
         if query_string:
             return u"?" + query_string
         return ""
+
+
+class TongaClientOptions(object):
+    def __init__(self, offline_mode=False):
+        self.offline_mode = offline_mode
