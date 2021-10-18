@@ -4,17 +4,21 @@ import six
 
 
 class TongaClient(object):
-    def __init__(self, server_url, context_attributes=None, options=None):
+    def __init__(self, server_url, context_attributes=None, request_attributes=None, options=None):
         """
         :param server_url: Server connection string
         :type server_url: str
         :param context_attributes: Optional context attributes to be passed on each query
         :type context_attributes: dict[str, object]
+        :param request_attributes: Optional request attributes to be passed on each query, they do not affect the
+        selected flag but can be used to add extra logging/monitoring information on the server side about this request
+        :type request_attributes: dict[str, str]
         :param options: Client optional configuration
         :type options: TongaClientOptions
         """
         self.server_url = server_url
         self.context_attributes = context_attributes or {}
+        self.request_attributes = request_attributes or {}
         self.options = options or TongaClientOptions()
         self._flag_cache = {}
 
@@ -58,7 +62,8 @@ class TongaClient(object):
         """
         request_string = u'{server_url}/flag_value/{flag}'.format(server_url=self.server_url, flag=flag)
         request_string += self._build_query_string()
-        response = requests.get(request_string)
+        headers = self._build_headers()
+        response = requests.get(request_string, headers=headers)
         if response.status_code == 404:
             return None
         # Check for error code
@@ -79,7 +84,20 @@ class TongaClient(object):
             return u"?" + query_string
         return ""
 
+    def _build_headers(self):
+        """
+        Creates extra headers to pass as part of the request based on given request attributes
+        :return: Request headers
+        :rtype: dict[str, str]
+        """
+        return {u'X-Tonga-{key}'.format(key=key): value for key, value in self.request_attributes.items()}
+
 
 class TongaClientOptions(object):
     def __init__(self, offline_mode=False):
+        """
+        :param offline_mode: Whether to operate in offline mode, not interacting with the server for fetching values.
+        This is useful for when running tests and there is no backend available or it should not be used
+        :type offline_mode: bool
+        """
         self.offline_mode = offline_mode

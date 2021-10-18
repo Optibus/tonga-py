@@ -64,6 +64,17 @@ class TestClient(unittest.TestCase):
         self.assertFalse(flag_value)
         self.assertFalse(m.called)
 
+    @requests_mock.Mocker()
+    def test_on_demand_fetch_single_boolean_flag_with_context_and_request_attributes(self, m):
+        server_url = "http://server_url"
+        m.get('{}/flag_value/flag_name?user=some+user1&some_attribute=2'.format(server_url), text="true")
+        client = TongaClient(server_url, context_attributes=dict(user='some user1', some_attribute=2),
+                             request_attributes=dict(attr1='val1', attr2='val2'))
+        flag_value = client.get("flag_name")
+        self.assertTrue(flag_value)
+        self.assertEqual('val1', m.last_request.headers['X-Tonga-attr1'])
+        self.assertEqual('val2', m.last_request.headers['X-Tonga-attr2'])
+
 
 if __name__ == '__main__':
     unittest.main()
