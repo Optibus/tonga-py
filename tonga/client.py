@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 import urllib
 import requests
 import six
@@ -92,6 +94,29 @@ class TongaClient(object):
         """
         return {u'X-Tonga-{key}'.format(key=key): six.text_type(value)
                 for key, value in self.request_attributes.items()}
+
+    def dump_state(self):
+        """
+        Returns a dump of the current flag state of the client containing all fetched flags
+        :return: Dump of fetched flag state
+        :rtype: dict[str, Any]
+        """
+        return deepcopy(self._flag_cache)
+
+    def set_state(self, state):
+        """
+        Sets the internal fetched flag state with the given state, this will override any prior fetched flags
+        This is useful for testing purposes when you want to test your code under different flag states
+        :param state: Flag state
+        :type state: dict[str, Any]
+        """
+        self._flag_cache = deepcopy(state)
+
+    def clear_state(self):
+        """
+        Clears current state, any following call to get will fetch the state from the backend (or offline mode)
+        """
+        self._flag_cache = {}
 
 
 class TongaClientOptions(object):
