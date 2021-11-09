@@ -99,6 +99,25 @@ class TestClient(unittest.TestCase):
         new_client.clear_state()
         self.assertEqual(2, new_client.get("flag_name2"))
 
+    @requests_mock.Mocker()
+    def test_with_set_state(self, m):
+        server_url = "http://server_url"
+        m.get('{}/flag_value/flag_name1'.format(server_url), json=dict(value=True))
+        m.get('{}/flag_value/flag_name2'.format(server_url), json=dict(value=2))
+        client = TongaClient(server_url)
+        client.get("flag_name1")
+        client.get("flag_name2")
+
+        state = client.dump_state()
+        self.assertDictEqual({"flag_name1": True, "flag_name2": 2}, state)
+
+        state["flag_name2"] = 1
+
+        with client.with_state(state):
+            self.assertEqual(1, client.get("flag_name2"))
+
+        self.assertEqual(2, client.get("flag_name2"))
+
 
 if __name__ == '__main__':
     unittest.main()

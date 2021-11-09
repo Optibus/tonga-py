@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from copy import deepcopy
 
 import urllib
@@ -117,6 +118,22 @@ class TongaClient(object):
         Clears current state, any following call to get will fetch the state from the backend (or offline mode)
         """
         self._flag_cache = {}
+
+    @contextmanager
+    def with_state(self, state):
+        """
+        Override current flag state with given state while inside the with context, once scope is exited previous state
+        is restored. This is useful for tests when the client is a singleton object inside the process and each test
+        should not have a side affect of changing the state for others
+        :param state: Flag state
+        :type state: dict[str, Any]
+        """
+        prev_state = self.dump_state()
+        self.set_state(state)
+        try:
+            yield
+        finally:
+            self.set_state(prev_state)
 
 
 class TongaClientOptions(object):
