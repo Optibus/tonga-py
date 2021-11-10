@@ -90,14 +90,14 @@ class TestClient(unittest.TestCase):
 
         state["flag_name2"] = 1
 
-        new_client = TongaClient(server_url)
+        new_client = TongaClient(server_url, options=TongaClientOptions(offline_mode=True))
         new_client.set_state(state)
 
         self.assertEqual(True, new_client.get("flag_name1"))
-        self.assertEqual(1, new_client.get("flag_name2"))
+        self.assertEqual(1, new_client.get("flag_name2", offline_value=2))
 
         new_client.clear_state()
-        self.assertEqual(2, new_client.get("flag_name2"))
+        self.assertEqual(2, new_client.get("flag_name2", offline_value=2))
 
     @requests_mock.Mocker()
     def test_with_set_state(self, m):
