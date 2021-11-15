@@ -19,6 +19,14 @@ class TestClient(unittest.TestCase):
         self.assertIsNone(flag_value)
 
     @requests_mock.Mocker()
+    def test_on_demand_fetch_single_no_value_in_response(self, m):
+        server_url = "http://server_url"
+        m.get('{}/flag_value/flag_name'.format(server_url), json=dict())
+        client = TongaClient(server_url)
+        flag_value = client.get("flag_name")
+        self.assertIsNone(flag_value)
+
+    @requests_mock.Mocker()
     def test_on_demand_fetch_single_boolean_flag(self, m):
         server_url = "http://server_url"
         m.get('{}/flag_value/flag_name'.format(server_url), json=dict(value=True))

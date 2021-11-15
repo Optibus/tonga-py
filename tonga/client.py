@@ -72,7 +72,7 @@ class TongaClient(object):
             return None
         # Check for error code
         response.raise_for_status()
-        return response.json()['value']
+        return response.json().get('value')
 
     def _build_query_string(self):
         """
