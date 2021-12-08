@@ -94,7 +94,7 @@ class TongaClient(object):
         :return: Request headers
         :rtype: dict[str, str]
         """
-        return {u'X-Tonga-{key}'.format(key=key): six.text_type(value)
+        return {u'X-Tonga-{key}'.format(key=key): six.ensure_str(value)
                 for key, value in self.request_attributes.items()}
 
     def dump_state(self):

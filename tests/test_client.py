@@ -1,6 +1,9 @@
+# coding=utf-8
+
 import unittest
 
 import requests_mock
+import six
 
 from tonga import TongaClient, TongaClientOptions
 
@@ -125,6 +128,17 @@ class TestClient(unittest.TestCase):
             self.assertEqual(1, client.get("flag_name2"))
 
         self.assertEqual(2, client.get("flag_name2"))
+
+    @requests_mock.Mocker()
+    def test_with_unicode_header_value(self, m):
+        server_url = "http://server_url"
+        m.get('{}/flag_value/flag_name?user=some+user1&some_attribute=2'.format(server_url), json=dict(value=True))
+        client = TongaClient(server_url, context_attributes=dict(user='some user1', some_attribute=2),
+                             request_attributes=dict(attr1=u'PróUrbano SP', attr2='val2'))
+        flag_value = client.get("flag_name")
+        self.assertEqual(True, flag_value)
+        self.assertEqual(six.ensure_str(u'PróUrbano SP'), m.last_request.headers['X-Tonga-attr1'])
+        self.assertEqual('val2', m.last_request.headers['X-Tonga-attr2'])
 
 
 if __name__ == '__main__':
