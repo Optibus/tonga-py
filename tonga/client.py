@@ -36,12 +36,26 @@ class TongaClient(object):
         :return: Flag value if defined, otherwise None
         :rtype: Any
         """
-        if flag in self._flag_cache:
-            return self._flag_cache[flag]
+        flag_in_cache, value_from_cache = self.get_flag_from_cache(flag)
+        if flag_in_cache:
+            return value_from_cache
 
         if self.options.offline_mode:
             return offline_value
         return self._get_flag_value_through_cache(flag)
+
+    def get_flag_from_cache(self, flag):
+        """
+        Gets the value associated to the specified flag
+        from cache
+        :param flag: Flag name
+        :type flag: str
+        :return: Flag value if defined, otherwise None
+        :rtype: bool, Any
+        """
+        if flag in self._flag_cache:
+            return True, self._flag_cache[flag]
+        return False, None
 
     def _get_flag_value_through_cache(self, flag):
         """
