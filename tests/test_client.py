@@ -1,8 +1,10 @@
 # coding=utf-8
 
 import unittest
+from mock import patch, Mock
 
 import requests_mock
+import requests
 import six
 
 from tonga import TongaClient, TongaClientOptions
@@ -150,6 +152,47 @@ class TestClient(unittest.TestCase):
         self.assertEqual(True, flag_value)
         self.assertNotIn('X-Tonga-attr1', m.last_request.headers)
         self.assertEqual('val2', m.last_request.headers['X-Tonga-attr2'])
+
+    def test_retry_upon_get_exception(self):
+        server_url = "http://server_url"
+        good_response = Mock()
+        good_response.status_code = 200
+        good_response.json.return_value = dict(value=True)
+        # Raise error 5 times, retry is set to 6 so it should work
+        with patch('tonga.client.requests.get',
+                   side_effect=[requests.exceptions.ConnectionError("error")] * 5 + [good_response]):
+            client = TongaClient(server_url, options=TongaClientOptions(retry_delay=0.01, retries=6))
+            flag_value = client.get("flag_name")
+            self.assertEqual(True, flag_value)
+
+        # Raise error 5 times, retry is set to 5 so it should fail
+        with patch('tonga.client.requests.get',
+                   side_effect=[requests.exceptions.ConnectionError("error")] * 5 + [good_response]):
+            client = TongaClient(server_url, options=TongaClientOptions(retry_delay=0.01, retries=5))
+            with self.assertRaises(requests.exceptions.ConnectionError):
+                client.get("flag_name")
+
+    def test_retry_upon_raise_for_status(self):
+        server_url = "http://server_url"
+        error_response = Mock()
+        error_response.status_code = 500
+        error_response.raise_for_status = Mock(side_effect=requests.exceptions.ConnectionError("error"))
+        good_response = Mock()
+        good_response.status_code = 200
+        good_response.json.return_value = dict(value=True)
+        # Raise error 5 times, retry is set to 6 so it should work
+        with patch('tonga.client.requests.get',
+                   side_effect=[error_response] * 5 + [good_response]):
+            client = TongaClient(server_url, options=TongaClientOptions(retry_delay=0.01, retries=6))
+            flag_value = client.get("flag_name")
+            self.assertEqual(True, flag_value)
+
+        # Raise error 5 times, retry is set to 5 so it should fail
+        with patch('tonga.client.requests.get',
+                   side_effect=[error_response] * 5 + [good_response]):
+            client = TongaClient(server_url, options=TongaClientOptions(retry_delay=0.01, retries=5))
+            with self.assertRaises(requests.exceptions.ConnectionError):
+                client.get("flag_name")
 
 
 if __name__ == '__main__':
