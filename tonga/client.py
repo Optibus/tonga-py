@@ -1,3 +1,5 @@
+from time import sleep
+
 from contextlib import contextmanager
 from copy import deepcopy
 
@@ -67,12 +69,19 @@ class TongaClient(object):
         request_string = u'{server_url}/flag_value/{flag}'.format(server_url=self.server_url, flag=flag)
         request_string += self._build_query_string()
         headers = self._build_headers()
-        response = requests.get(request_string, headers=headers)
-        if response.status_code == 404:
-            return None
-        # Check for error code
-        response.raise_for_status()
-        return response.json().get('value')
+        for attempt in range(self.options.retries + 1):
+            try:
+                response = requests.get(request_string, headers=headers)
+                if response.status_code == 404:
+                    return None
+                # Check for error code
+                response.raise_for_status()
+                return response.json().get('value')
+            except requests.exceptions.RequestException:
+                # Upon last retry, raise original error
+                if attempt == self.options.retries:
+                    raise
+                sleep(self.options.retry_delay)
 
     def _build_query_string(self):
         """
@@ -138,10 +147,16 @@ class TongaClient(object):
 
 
 class TongaClientOptions(object):
-    def __init__(self, offline_mode=False):
+    def __init__(self, offline_mode=False, retries=10, retry_delay=1):
         """
         :param offline_mode: Whether to operate in offline mode, not interacting with the server for fetching values.
         This is useful for when running tests and there is no backend available or it should not be used
         :type offline_mode: bool
+        :param retries: Number of retries when failing to get a flag
+        :type retries: int
+        :param retry_delay: Delay between each retry attempt in seconds
+        :type retry_delay: float
         """
         self.offline_mode = offline_mode
+        self.retries = retries
+        self.retry_delay = retry_delay
