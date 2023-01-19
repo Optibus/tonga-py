@@ -17,7 +17,7 @@ setuptools.setup(
     url="https://github.com/Optibus/tonga-py",
     packages=setuptools.find_packages(),
     install_requires=[
-        'six==1.15.0',
+        'six>=1.15.0',
         'requests==2.24',
     ],
     extras_require={'dev': [
