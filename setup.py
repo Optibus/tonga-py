@@ -18,7 +18,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         'six>=1.15.0',
-        'requests==2.24',
+        'requests>=2.24',
     ],
     extras_require={'dev': [
         'mock==2.0.0',
