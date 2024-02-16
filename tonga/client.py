@@ -26,6 +26,7 @@ class TongaClient(object):
         self.request_attributes = request_attributes or {}
         self.options = options or TongaClientOptions()
         self._flag_cache = {}
+        self._pre_fetched = False
 
     def get(self, flag, offline_value=None):
         """
@@ -54,9 +55,37 @@ class TongaClient(object):
         :return: Flag value if defined, otherwise None
         :rtype: Any
         """
+        if self.options.pre_fetch:
+            return self._pre_fetch_if_needed_and_get_flag(flag)
+
         value = self._get_flag_value_from_server(flag)
         self._flag_cache[flag] = value
         return value
+
+    def _pre_fetch_if_needed_and_get_flag(self, flag):
+        """
+        Pre-fetches all flags and then gets the flag value from the cache
+        :param flag: Flag name
+        :type flag: str
+        :return: Flag value if defined, otherwise None
+        :rtype: Any
+        """
+        # If we are here, it means that the flag is not in the cache, but we are in pre-fetch mode, so we can safely
+        # assume that the flag is not in the cache because it was not available while pre-fetching, so we can return
+        # None without making a request to the server
+        if self._pre_fetched:
+            return None
+
+        request_string = u"{server_url}/all_flags_values".format(server_url=self.server_url)
+        request_string += self._build_query_string()
+        headers = self._build_headers()
+        response_json = self._get_from_server_with_retries(request_string, headers)
+        all_flags = response_json if response_json else {}
+        # Update cache with pre-fetched flags
+        for key, value in all_flags.items():
+            self._flag_cache[key] = value
+        self._pre_fetched = True
+        return self._flag_cache.get(flag)
 
     def _get_flag_value_from_server(self, flag):
         """
@@ -66,9 +95,22 @@ class TongaClient(object):
         :return: Flag value if defined, otherwise None
         :rtype: Any
         """
-        request_string = u'{server_url}/flag_value/{flag}'.format(server_url=self.server_url, flag=flag)
+        request_string = u"{server_url}/flag_value/{flag}".format(server_url=self.server_url, flag=flag)
         request_string += self._build_query_string()
         headers = self._build_headers()
+        response_json = self._get_from_server_with_retries(request_string, headers)
+        return response_json.get("value") if response_json else None
+
+    def _get_from_server_with_retries(self, request_string, headers):
+        """
+        Fetch request data from the server with retries
+        :param request_string: Request string
+        :type request_string: str
+        :param headers: Request headers
+        :type headers: dict[str, str]
+        :return: Flag value if defined, otherwise None
+        :rtype: dict or None
+        """
         for attempt in range(self.options.retries + 1):
             try:
                 response = requests.get(request_string, headers=headers)
@@ -76,7 +118,7 @@ class TongaClient(object):
                     return None
                 # Check for error code
                 response.raise_for_status()
-                return response.json().get('value')
+                return response.json()
             except requests.exceptions.RequestException:
                 # Upon last retry, raise original error
                 if attempt == self.options.retries:
@@ -103,8 +145,11 @@ class TongaClient(object):
         :return: Request headers
         :rtype: dict[str, str]
         """
-        return {u'X-Tonga-{key}'.format(key=key): six.ensure_str(six.text_type(value))
-                for key, value in self.request_attributes.items() if value is not None}
+        return {
+            u"X-Tonga-{key}".format(key=key): six.ensure_str(six.text_type(value))
+            for key, value in self.request_attributes.items()
+            if value is not None
+        }
 
     def dump_state(self):
         """
@@ -147,7 +192,7 @@ class TongaClient(object):
 
 
 class TongaClientOptions(object):
-    def __init__(self, offline_mode=False, retries=10, retry_delay=1):
+    def __init__(self, offline_mode=False, retries=10, retry_delay=1, pre_fetch=False):
         """
         :param offline_mode: Whether to operate in offline mode, not interacting with the server for fetching values.
         This is useful for when running tests and there is no backend available or it should not be used
@@ -156,7 +201,11 @@ class TongaClientOptions(object):
         :type retries: int
         :param retry_delay: Delay between each retry attempt in seconds
         :type retry_delay: float
+        :param pre_fetch: Whether to pre-fetch all flags when a flag is requested, this is useful when you want to
+        avoid multiple requests to the server when you know you will need multiple flags
+        :type pre_fetch: bool
         """
         self.offline_mode = offline_mode
         self.retries = retries
         self.retry_delay = retry_delay
+        self.pre_fetch = pre_fetch
