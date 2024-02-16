@@ -18,7 +18,8 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         "six>=1.15.0",
-        "requests==2.24",
+        'requests==2.24; python_version < "3.0"',
+        'requests>=2.24; python_version > "3.0"',
     ],
     extras_require={
         "dev": [
