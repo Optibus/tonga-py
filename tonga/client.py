@@ -80,12 +80,27 @@ class TongaClient(object):
         request_string += self._build_query_string()
         headers = self._build_headers()
         response_json = self._get_from_server_with_retries(request_string, headers)
-        all_flags = response_json if response_json else {}
-        # Update cache with pre-fetched flags
-        for key, value in all_flags.items():
-            self._flag_cache[key] = value
+        pre_fetched = response_json if response_json else {}
+        self._populate_cache_from_pre_fetched(pre_fetched)
         self._pre_fetched = True
         return self._flag_cache.get(flag)
+
+    def _populate_cache_from_pre_fetched(self, pre_fetched, prefix=""):
+        """
+        Populates the cache with the pre-fetched flags
+        :param pre_fetched: Pre-fetched flags
+        :type pre_fetched: dict[str, Any]
+        :param prefix: Prefix to add to the flag names
+        :type prefix: str
+        """
+        # The pre-fetched is a dictionary with any depth, so we need to recursively populate the cache and add the
+        # prefix to the keys in order to flatten the structure into a single level dictionary with the full flag names
+        for key, value in pre_fetched.items():
+            if not isinstance(value, dict):
+                self._flag_cache[prefix + key] = value
+            else:
+                # Recursively populate the cache
+                self._populate_cache_from_pre_fetched(value, prefix + key + ".")
 
     def _get_flag_value_from_server(self, flag):
         """
