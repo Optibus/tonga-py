@@ -95,12 +95,17 @@ class TestClient(unittest.TestCase):
     @requests_mock.Mocker()
     def test_pre_fetch_fetch_single_boolean_flag_cached_result(self, m):
         server_url = "http://server_url"
-        m.get("{}/all_flags_values".format(server_url), json=dict(flag_name1=True, flag_name2=2))
+        m.get(
+            "{}/all_flags_values".format(server_url),
+            json=dict(features=dict(flags=dict(name1=True, name2=2), other="value")),
+        )
         client = TongaClient(server_url, options=TongaClientOptions(pre_fetch=True))
-        flag1_value = client.get("flag_name1")
+        flag1_value = client.get("features.flags.name1")
         self.assertEqual(True, flag1_value)
-        flag2_value = client.get("flag_name2")
+        flag2_value = client.get("features.flags.name2")
         self.assertEqual(2, flag2_value)
+        flag3_value = client.get("features.other")
+        self.assertEqual("value", flag3_value)
         self.assertEqual(1, m.call_count)
 
     @requests_mock.Mocker()
