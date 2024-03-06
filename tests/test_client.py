@@ -197,18 +197,20 @@ class TestClient(unittest.TestCase):
             "tonga.client.requests.get",
             side_effect=[requests.exceptions.ConnectionError("error")] * 5 + [good_response],
         ):
-            client = TongaClient(server_url, options=TongaClientOptions(retry_delay=0.01, retries=5))
+            client = TongaClient(server_url, options=TongaClientOptions(retry_delay=0.1, retries=5))
             flag_value = client.get("flag_name")
             self.assertEqual(True, flag_value)
+            self.assertAlmostEquals(0.55, client.accumulated_latency, delta=0.1)
 
         # Raise error 5 times, retry is set to 4 so it should fail
         with patch(
             "tonga.client.requests.get",
             side_effect=[requests.exceptions.ConnectionError("error")] * 5 + [good_response],
         ):
-            client = TongaClient(server_url, options=TongaClientOptions(retry_delay=0.01, retries=4))
+            client = TongaClient(server_url, options=TongaClientOptions(retry_delay=0.1, retries=4))
             with self.assertRaises(requests.exceptions.ConnectionError):
                 client.get("flag_name")
+            self.assertAlmostEquals(0.44, client.accumulated_latency, delta=0.1)
 
     def test_retry_upon_raise_for_status(self):
         server_url = "http://server_url"

@@ -1,4 +1,4 @@
-from time import sleep
+from time import sleep, time
 
 from contextlib import contextmanager
 from copy import deepcopy
@@ -27,6 +27,7 @@ class TongaClient(object):
         self.options = options or TongaClientOptions()
         self._flag_cache = {}
         self._pre_fetched = False
+        self._time_spent_fetching_from_server = 0
 
     def get(self, flag, offline_value=None):
         """
@@ -127,6 +128,7 @@ class TongaClient(object):
         :rtype: dict or None
         """
         for attempt in range(self.options.retries + 1):
+            start_time = time()
             try:
                 response = requests.get(request_string, headers=headers)
                 if response.status_code == 404:
@@ -139,6 +141,8 @@ class TongaClient(object):
                 if attempt == self.options.retries:
                     raise
                 sleep(self.options.retry_delay)
+            finally:
+                self._time_spent_fetching_from_server += time() - start_time
 
     def _build_query_string(self):
         """
@@ -204,6 +208,14 @@ class TongaClient(object):
             yield
         finally:
             self.set_state(prev_state)
+
+    @property
+    def accumulated_latency(self):
+        """
+        Returns the accumulated latency of the intercepted client
+        :rtype: float
+        """
+        return self._time_spent_fetching_from_server
 
 
 class TongaClientOptions(object):
