@@ -1,9 +1,11 @@
-from time import sleep
+from time import sleep, time
 
 from contextlib import contextmanager
 from copy import deepcopy
 
 import urllib
+from typing import Dict, Any
+
 import requests
 import six
 
@@ -27,6 +29,7 @@ class TongaClient(object):
         self.options = options or TongaClientOptions()
         self._flag_cache = {}
         self._pre_fetched = False
+        self._time_spent_fetching_from_server = 0
 
     def get(self, flag, offline_value=None):
         """
@@ -76,31 +79,56 @@ class TongaClient(object):
         if self._pre_fetched:
             return None
 
+        self._pre_fetch_and_populate_cache()
+        return self._flag_cache.get(flag)
+
+    def get_all_flags_from_server(self):  # type: () -> Dict[str, Any]
+        """
+        Fetch all flags from the server and return them as a dictionary in a flattened structure (no nested
+        dictionaries)
+        """
+        response_json = self._get_all_flag_response_from_server()
+        if not response_json:
+            return {}
+        return self._recursive_squash_response_dict(response_json)
+
+    def _get_all_flag_response_from_server(self):  # type: () -> Dict[str, Any]
+        """
+        Fetch all flags from the server and return them as a dictionary
+        """
         request_string = u"{server_url}/all_flags_values".format(server_url=self.server_url)
         request_string += self._build_query_string()
         headers = self._build_headers()
         response_json = self._get_from_server_with_retries(request_string, headers)
-        pre_fetched = response_json if response_json else {}
-        self._populate_cache_from_pre_fetched(pre_fetched)
-        self._pre_fetched = True
-        return self._flag_cache.get(flag)
+        return response_json if response_json else {}
 
-    def _populate_cache_from_pre_fetched(self, pre_fetched, prefix=""):
+    def _recursive_squash_response_dict(
+            self,
+            flag_response,  # type: Dict[str, Any]
+            prefix="",  # type: str
+    ):  # type: (...) -> Dict[str, Any]
         """
-        Populates the cache with the pre-fetched flags
-        :param pre_fetched: Pre-fetched flags
-        :type pre_fetched: dict[str, Any]
-        :param prefix: Prefix to add to the flag names
-        :type prefix: str
+        Squash a nested response dictionary into a single level dictionary with the full flag names
         """
+        squashed_dict = {}
         # The pre-fetched is a dictionary with any depth, so we need to recursively populate the cache and add the
         # prefix to the keys in order to flatten the structure into a single level dictionary with the full flag names
-        for key, value in pre_fetched.items():
+        for key, value in flag_response.items():
             if not isinstance(value, dict):
-                self._flag_cache[prefix + key] = value
+                squashed_dict[prefix + key] = value
             else:
                 # Recursively populate the cache
-                self._populate_cache_from_pre_fetched(value, prefix + key + ".")
+                squashed_dict.update(self._recursive_squash_response_dict(value, prefix + key + "."))
+        return squashed_dict
+
+    def _pre_fetch_and_populate_cache(self):  # type: () -> Dict[str, Any]
+        """
+        Populates the cache with the pre-fetched flags
+        """
+        pre_fetched_flags = self.get_all_flags_from_server()
+        self.update_state(pre_fetched_flags)
+        self._pre_fetched = True
+        return pre_fetched_flags
 
     def _get_flag_value_from_server(self, flag):
         """
@@ -127,6 +155,7 @@ class TongaClient(object):
         :rtype: dict or None
         """
         for attempt in range(self.options.retries + 1):
+            start_time = time()
             try:
                 response = requests.get(request_string, headers=headers)
                 if response.status_code == 404:
@@ -139,6 +168,8 @@ class TongaClient(object):
                 if attempt == self.options.retries:
                     raise
                 sleep(self.options.retry_delay)
+            finally:
+                self._time_spent_fetching_from_server += time() - start_time
 
     def _build_query_string(self):
         """
@@ -183,6 +214,15 @@ class TongaClient(object):
         """
         self._flag_cache = deepcopy(state)
 
+    def update_state(self, state):
+        """
+        Updates the internal fetched flag state with the given state, this will override any prior fetched flags
+        This is useful for testing purposes when you want to test your code under different flag states
+        :param state: Flag state
+        :type state: dict[str, Any]
+        """
+        self._flag_cache.update(state)
+
     def clear_state(self):
         """
         Clears current state, any following call to get will fetch the state from the backend (or offline mode)
@@ -204,6 +244,14 @@ class TongaClient(object):
             yield
         finally:
             self.set_state(prev_state)
+
+    @property
+    def accumulated_latency(self):
+        """
+        Returns the accumulated latency of the intercepted client
+        :rtype: float
+        """
+        return self._time_spent_fetching_from_server
 
 
 class TongaClientOptions(object):
